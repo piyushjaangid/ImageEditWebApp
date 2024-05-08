@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Editor</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs/dist/cropper.min.css">
+    <style>
+        img {
+            max-width: 100%;
+            display: block; /* Fixes issues related to Cropper.js and image visibility */
+            position: relative;
+            background: url('https://via.placeholder.com/500x300.png?text=Upload+Your+Image+Here') center/cover no-repeat;
+        }
+        body {
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+        input, button {
+            margin-top: 10px;
+        }
+        #statusBar {
+            margin-top: 10px;
+            color: blue;
+        }
+        .hidden {
+            display: none;
+        }
+        #imageInput {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <input type="file" id="imageInput" accept="image/png, image/jpeg, image/gif">
+    <br>
+    <img id="preview" src="https://via.placeholder.com/500x300.png?text=Upload+Your+Image+Here" alt="Image Preview">
+    <br>
+    <button onclick="compressImage()">Compress</button>
+    <input type="range" id="compressionRate" min="0" max="100" value="100">
+    <button onclick="resizeImage()">Resize</button>
+    <input type="text" id="resizeWidth" placeholder="Width">
+    <input type="text" id="resizeHeight" placeholder="Height">
+    <button onclick="cropImage()">Crop</button>
+    <button onclick="addText()">Add Text</button>
+    <input type="text" id="textToAdd" placeholder="Text to add">
+    <br>
+    <button id="downloadBtn" class="hidden" onclick="downloadImage()">Download</button>
+    <div id="statusBar">Ready</div>
+
+    <script src="https://cdn.jsdelivr.net/npm/cropperjs/dist/cropper.min.js"></script>
+    <script>
+        let imageElement = document.getElementById('preview');
+        let cropper;
+        let statusBar = document.getElementById('statusBar');
+
+        function updateStatus(message) {
+            statusBar.textContent = message;
+        }
+
+        document.getElementById('imageInput').addEventListener('change', function (event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    imageElement.src = e.target.result;
+                    if (cropper) {
+                        cropper.destroy();
+                    }
+                    cropper = new Cropper(imageElement, {
+                        aspectRatio: 16 / 9
+                    });
+                    updateStatus(`Image loaded. Cropper initialized.`);
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        function compressImage() {
+            if (!cropper) {
+                updateStatus('Error: Cropper is not initialized.');
+                return;
+            }
+            const compressionRate = document.getElementById('compressionRate').value;
+            const quality = compressionRate / 100;
+
+            cropper.getCroppedCanvas().toBlob(function(blob) {
+                const compressedSize = blob.size / 1024; // Convert to KB
+                const newImageUrl = URL.createObjectURL(blob);
+                imageElement.src = newImageUrl;
+                cropper.replace(newImageUrl);
+                updateStatus(`Compression to ${compressionRate}% complete. File size: ${compressedSize.toFixed(2)} KB.`);
+                document.getElementById('downloadBtn').classList.remove('hidden');
+            }, 'image/jpeg', quality);
+        }
+
+        function resizeImage() {
+            const width = parseInt(document.getElementById('resizeWidth').value);
+            const height = parseInt(document.getElementById('resizeHeight').value);
+            if (cropper && width && height) {
+                cropper.getCroppedCanvas({
+                    width: width,
+                    height: height
+                }).toBlob(function(blob) {
+                    const newSize = blob.size / 1024;
+                    const newImageUrl = URL.createObjectURL(blob);
+                    imageElement.src = newImageUrl;
+                    cropper.replace(newImageUrl);
+                    updateStatus(`Resized to ${width}x${height}. File size: ${newSize.toFixed(2)} KB.`);
+                    document.getElementById('downloadBtn').classList.remove('hidden');
+                }, 'image/jpeg');
+            } else {
+                updateStatus('Error: Invalid dimensions or cropper not initialized.');
+            }
+        }
+
+        function cropImage() {
+            if (cropper) {
+                cropper.getCroppedCanvas().toBlob(function(blob) {
+                    const newSize = blob.size / 1024;
+                    const newImageUrl = URL.createObjectURL(blob);
+                    imageElement.src = newImageUrl;
+                    cropper.replace(newImageUrl);
+                    updateStatus(`Cropping complete. File size: ${newSize.toFixed(2)} KB.`);
+                    document.getElementById('downloadBtn').classList.remove('hidden');
+                }, 'image/jpeg');
+            } else {
+                updateStatus('Error: Cropper is not initialized.');
+            }
+        }
+
+        function addText() {
+            const text = document.getElementById('textToAdd').value;
+            if (cropper && text) {
+                const canvas = cropper.getCroppedCanvas();
+                const ctx = canvas.getContext('2d');
+                ctx.font = '30px Arial';
+                ctx.fillStyle = 'red';
+                ctx.textBaseline = 'top';
+                ctx.fillText(text, 10, 10); // Position text at top left
+                canvas.toBlob(function(blob) {
+                    const newSize = blob.size / 1024;
+                    const newImageUrl = URL.createObjectURL(blob);
+                    imageElement.src = newImageUrl;
+                    cropper.replace(newImageUrl);
+                    updateStatus(`Text "${text}" added. File size: ${newSize.toFixed(2)} KB.`);
+                    document.getElementById('downloadBtn').classList.remove('hidden');
+                }, 'image/jpeg');
+            } else {
+                updateStatus('Error: Text is empty or cropper not initialized.');
+            }
+        }
+
+       function downloadImage() {
+    const a = document.createElement('a');
+    a.href = imageElement.src; // Ensures the href is the source of the image
+    a.download = 'edited-image.png'; // Sets the default filename for download
+    document.body.appendChild(a); // Adds the link to the document
+    a.click(); // Corrected to properly call the function
+    document.body.removeChild(a); // Cleans up by removing the link after use
+    updateStatus('Image downloaded.'); // Update status to user
+}
+    </script>
+</body>
+</html>
